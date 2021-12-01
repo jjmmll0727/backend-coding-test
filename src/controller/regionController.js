@@ -1,6 +1,7 @@
 const storesJson = require('../data/stores.json');
 const util = require('../constants/util');
 const statusCode = require('../constants/statusCode');
+const postcodes = require('node-postcodes.io');
 
 const getAllCities = (req, res) => {
     try {
@@ -12,8 +13,8 @@ const getAllCities = (req, res) => {
 
         if (storeData.length === 0) {
             return res
-                .status(statusCode.NO_CONTENT)
-                .send(util.success(statusCode.NO_CONTENT, 'no stored data'));
+                .status(statusCode.NOT_FOUND)
+                .send(util.fail(statusCode.NOT_FOUND, 'no stored data'));
         } else {
             return res
                 .status(statusCode.OK)
@@ -42,10 +43,10 @@ const getSpecificCity = (req, res) => {
         // 해당 도시가 없거나, 혹은 도시의 이름이 잘못되었을 경우 처리.
         if (cities.length === 0) {
             return res
-                .status(statusCode.NO_CONTENT)
+                .status(statusCode.NOT_FOUND)
                 .send(
-                    util.success(
-                        statusCode.NO_CONTENT,
+                    util.fail(
+                        statusCode.NOT_FOUND,
                         'no city about the request OR wrong city name'
                     )
                 );
@@ -62,7 +63,39 @@ const getSpecificCity = (req, res) => {
     }
 };
 
+const getLatLongFromPostcode = async (req, res) => {
+    try {
+        const postcode = req.params.postcode;
+        const latlong = await postcodes.lookup(postcode);
+        if (latlong.status != 200) {
+            return res
+                .status(statusCode.NOT_FOUND)
+                .send(
+                    util.fail(
+                        statusCode.NOT_FOUND,
+                        'no postcode like the request'
+                    )
+                );
+        } else {
+            const result = {
+                city: latlong.result.parliamentary_constituency,
+                latitude: latlong.result.latitude,
+                longitude: latlong.result.longitude,
+            };
+            return res
+                .status(statusCode.OK)
+                .send(util.success(statusCode.OK, result));
+        }
+    } catch (err) {
+        console.log(err);
+        return res
+            .status(statusCode.INTERNAL_SERVER_ERROR)
+            .send(util.fail(statusCode.BAD_REQUEST, err.response));
+    }
+};
+
 module.exports = {
     getAllCities,
     getSpecificCity,
+    getLatLongFromPostcode,
 };

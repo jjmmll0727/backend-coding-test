@@ -4,5 +4,8 @@ const regionController = require('../../controller/regionController');
 
 router.get('/getAllCities', regionController.getAllCities);
 router.get('/getSpecificCity/:city', regionController.getSpecificCity);
-
+router.get(
+    '/getLatLongFromPostcode/:postcode',
+    regionController.getLatLongFromPostcode
+);
 module.exports = router;
