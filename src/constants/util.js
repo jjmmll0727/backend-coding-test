@@ -1,14 +1,12 @@
 module.exports = {
-    success: (status, message, data) => ({
-      status,
-      success: true,
-      message,
-      data,
+    success: (status, data) => ({
+        status,
+        success: true,
+        data,
     }),
-    fail: (status, message,data) => ({
-      status,
-      success: false,
-      message,
-      data,
+    fail: (status, data) => ({
+        status,
+        success: false,
+        data,
     }),
-  };
+};
