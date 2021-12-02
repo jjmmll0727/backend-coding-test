@@ -5,10 +5,9 @@ const postcodes = require('node-postcodes.io');
 
 const getAllCities = (req, res) => {
     try {
-        let storeData = [];
-        // json파일에 저장된 도시들의 이름만 추출하여 배열에 저장.
-        storesJson.forEach((item) => {
-            storeData.push(item.name);
+        // forEach 보다 map의 성능이 좋기 때문에 map으로 조회
+        let storeData = storesJson.map((item) => {
+            return item.name;
         });
 
         if (storeData.length === 0) {
@@ -31,15 +30,13 @@ const getAllCities = (req, res) => {
 const getSpecificCity = (req, res) => {
     try {
         const city = req.params.city;
-        const cities = []; // 혹시 같은 이름의 도시가 있을 수 있으니, 가능한 모든 도시를 뽑기 위해 배열 선언.
 
-        // consumer가 원하는 도시에 대한 정보를 추출.
-        storesJson.forEach((item) => {
+        // 2개 이상의 도시가 있을 수 있으니까 'find'가 아닌 'filter'로 조회
+        let cities = storesJson.filter((item) => {
             if (item.name === city) {
-                cities.push(item);
+                return item;
             }
         });
-
         // 해당 도시가 없거나, 혹은 도시의 이름이 잘못되었을 경우 처리.
         if (cities.length === 0) {
             return res
@@ -66,8 +63,8 @@ const getSpecificCity = (req, res) => {
 const getLatLongFromPostcode = async (req, res) => {
     try {
         const postcode = req.params.postcode;
-        const latlong = await postcodes.lookup(postcode);
-        if (latlong.status != 200) {
+        const validateRes = await postcodes.validate(postcode);
+        if (validateRes.result === false) {
             return res
                 .status(statusCode.NOT_FOUND)
                 .send(
@@ -76,15 +73,94 @@ const getLatLongFromPostcode = async (req, res) => {
                         'no postcode like the request'
                     )
                 );
+        }
+        const lookupRes = await postcodes.lookup(postcode);
+        const result = {
+            city: lookupRes.result.parliamentary_constituency,
+            latitude: lookupRes.result.latitude,
+            longitude: lookupRes.result.longitude,
+        };
+        return res
+            .status(statusCode.OK)
+            .send(util.success(statusCode.OK, result));
+    } catch (err) {
+        console.log(err);
+        return res
+            .status(statusCode.INTERNAL_SERVER_ERROR)
+            .send(util.fail(statusCode.BAD_REQUEST, err.response));
+    }
+};
+
+const getAroundCities = async (req, res) => {
+    try {
+        const radius = req.query.radius;
+        const postcode = req.params.postcode;
+        const validateRes = await postcodes.validate(postcode);
+        if (validateRes.result === false) {
+            return res
+                .status(statusCode.NOT_FOUND)
+                .send(
+                    util.fail(
+                        statusCode.NOT_FOUND,
+                        'no postcode like the request'
+                    )
+                );
+        }
+        const lookupRes = await postcodes.lookup(postcode);
+
+        const latitude = lookupRes.result.latitude;
+        const longitude = lookupRes.result.longitude;
+        const geoResult = await postcodes.geo([
+            {
+                latitude: latitude,
+                longitude: longitude,
+                radius: radius,
+            },
+        ]);
+        // postcode가 정상적이라면, 반드시 중심의 도시 하나는 있어야 한다. 하지만 결과가 나오지 않는다는 것은 radius가 음수라는 의미
+        if (geoResult.result[0].result === null) {
+            return res
+                .status(statusCode.NOT_FOUND)
+                .send(
+                    util.fail(
+                        statusCode.NOT_FOUND,
+                        'radius must be positive number'
+                    )
+                );
         } else {
-            const result = {
-                city: latlong.result.parliamentary_constituency,
-                latitude: latlong.result.latitude,
-                longitude: latlong.result.longitude,
-            };
+            let aroundCities = geoResult.result[0].result.map((city) => {
+                return {
+                    postcode: city.postcode,
+                    latitude: city.latitude,
+                    longitude: city.longitude,
+                };
+            });
+            aroundCities.sort((a, b) => {
+                return a.latitude > b.latitude ? -1 : 1;
+            });
+            let listOfCities = aroundCities.map((city) => {
+                return storesJson.find((item) => {
+                    if (item.postcode === city.postcode) {
+                        return item;
+                    }
+                });
+            });
+            if (listOfCities == null) {
+                return res
+                    .status(statusCode.NOT_FOUND)
+                    .send(
+                        util.fail(
+                            statusCode.NOT_FOUND,
+                            'no city matching in stored list of requested'
+                        )
+                    );
+            }
+            // let storedCity = listOfCities.map((city) => {
+            //     return city.name;
+            // });
             return res
                 .status(statusCode.OK)
-                .send(util.success(statusCode.OK, result));
+                .send(util.success(statusCode.OK, listOfCities));
         }
     } catch (err) {
         console.log(err);
@@ -98,4 +174,5 @@ module.exports = {
     getAllCities,
     getSpecificCity,
     getLatLongFromPostcode,
+    getAroundCities,
 };

@@ -8,4 +8,5 @@ router.get(
     '/getLatLongFromPostcode/:postcode',
     regionController.getLatLongFromPostcode
 );
+router.get('/getAroundCities/:postcode', regionController.getAroundCities);
 module.exports = router;
