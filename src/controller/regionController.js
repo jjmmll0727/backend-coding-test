@@ -147,22 +147,13 @@ const getAroundCities = async (req, res) => {
                     return item.postcode === city.postcode;
                 });
             });
-            if (listOfCities == null) {
-                return res
-                    .status(statusCode.NOT_FOUND)
-                    .send(
-                        util.fail(
-                            statusCode.NOT_FOUND,
-                            'no city matching in stored list of requested'
-                        )
-                    );
-            }
-            let storedCity = listOfCities.map((city) => {
-                return city.name;
-            });
+
+            // let storedCity = listOfCities.map((city) => {
+            //     return city;
+            // });
             return res
                 .status(statusCode.OK)
-                .send(util.success(statusCode.OK, storedCity));
+                .send(util.success(statusCode.OK, listOfCities));
         }
     } catch (err) {
         console.log(err);
