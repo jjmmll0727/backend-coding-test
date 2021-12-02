@@ -31,7 +31,7 @@ const getSpecificCity = (req, res) => {
     try {
         const city = req.params.city;
 
-        // 2개 이상의 도시가 있을 수 있으니까 'find'가 아닌 'filter'로 조회
+        // 2개 이상의 도시가 있을 수 있으니까 'find'가 아닌 'filter'로 조회.
         let cities = storesJson.filter((item) => {
             if (item.name === city) {
                 return item;
@@ -117,7 +117,7 @@ const getAroundCities = async (req, res) => {
                 radius: radius,
             },
         ]);
-        // postcode가 정상적이라면, 반드시 중심의 도시 하나는 있어야 한다. 하지만 결과가 나오지 않는다는 것은 radius가 음수라는 의미
+        // postcode가 정상적이라면, 반드시 중심의 도시 하나는 있어야 한다. 하지만 결과가 나오지 않는다는 것은 radius가 음수라는 의미.
         if (geoResult.result[0].result === null) {
             return res
                 .status(statusCode.NOT_FOUND)
@@ -128,6 +128,7 @@ const getAroundCities = async (req, res) => {
                     )
                 );
         } else {
+            // 주변에 모든 가능한 도시들을 조회.
             let aroundCities = geoResult.result[0].result.map((city) => {
                 return {
                     postcode: city.postcode,
@@ -135,14 +136,15 @@ const getAroundCities = async (req, res) => {
                     longitude: city.longitude,
                 };
             });
+            // 북쪽에서 남쪽으로 정렬 (위도 이용).
             aroundCities.sort((a, b) => {
                 return a.latitude > b.latitude ? -1 : 1;
             });
-            let listOfCities = aroundCities.map((city) => {
-                return storesJson.find((item) => {
-                    if (item.postcode === city.postcode) {
-                        return item;
-                    }
+
+            // 가능한 도시들 중에 store.json 에 있는 도시들만.
+            let listOfCities = storesJson.filter((item) => {
+                return aroundCities.find((city) => {
+                    return item.postcode === city.postcode;
                 });
             });
             if (listOfCities == null) {
@@ -155,12 +157,12 @@ const getAroundCities = async (req, res) => {
                         )
                     );
             }
-            // let storedCity = listOfCities.map((city) => {
-            //     return city.name;
-            // });
+            let storedCity = listOfCities.map((city) => {
+                return city.name;
+            });
             return res
                 .status(statusCode.OK)
-                .send(util.success(statusCode.OK, listOfCities));
+                .send(util.success(statusCode.OK, storedCity));
         }
     } catch (err) {
         console.log(err);
