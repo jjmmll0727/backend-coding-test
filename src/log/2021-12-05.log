@@ -1,0 +1,6 @@
+2021-12-05 14:03:29 info: GET /store/getAllStores
+2021-12-05 20:23:49 info: GET /store/getAllStores
+2021-12-05 20:26:34 info: GET /store/SpecificStore
+2021-12-05 20:29:19 info: GET /store/LatLongFromPostcode
+2021-12-05 20:30:01 info: GET /store/AllStores
+2021-12-05 20:30:01 error: GET /store/AllStores

@@ -2,81 +2,91 @@ const storesJson = require('../data/stores.json');
 const util = require('../constants/util');
 const statusCode = require('../constants/statusCode');
 const postcodes = require('node-postcodes.io');
+const logger = require('../config/winston');
 
-const getAllCities = (req, res) => {
+const getAllStores = (req, res) => {
     try {
-        // forEach 보다 map의 성능이 좋기 때문에 map으로 조회
+        logger.info('GET /store/AllStores');
+        // forEach 보다 map의 성능이 좋기 때문에 map으로 조회.
+        // 상점들의 이름만 가져오고 싶다면 11 lines에서 'return item.nane'으로 변경
         let storeData = storesJson.map((item) => {
-            return item.name;
+            return item;
         });
 
+        // 가져올 수 있는 도시의 정보가 없을 경우.
         if (storeData.length === 0) {
             return res
                 .status(statusCode.NOT_FOUND)
-                .send(util.fail(statusCode.NOT_FOUND, 'no stored data'));
+                .send(
+                    util.fail(statusCode.NOT_FOUND, 'no store in saved list')
+                );
         } else {
             return res
                 .status(statusCode.OK)
                 .send(util.success(statusCode.OK, storeData));
         }
     } catch (err) {
-        console.log(err);
+        logger.error('GET /store/AllStores');
         return res
             .status(statusCode.INTERNAL_SERVER_ERROR)
-            .send(util.fail(statusCode.BAD_REQUEST, err.response));
+            .send(util.fail(statusCode.INTERNAL_SERVER_ERROR, err.response));
     }
 };
 
-const getSpecificCity = (req, res) => {
+const getSpecificStore = (req, res) => {
     try {
-        const city = req.params.city;
+        logger.info('GET /store/SpecificStore');
+        const store = req.params.store;
 
         // 2개 이상의 도시가 있을 수 있으니까 'find'가 아닌 'filter'로 조회.
-        let cities = storesJson.filter((item) => {
-            if (item.name === city) {
+        let stores = storesJson.filter((item) => {
+            if (item.name === store) {
                 return item;
             }
         });
         // 해당 도시가 없거나, 혹은 도시의 이름이 잘못되었을 경우 처리.
-        if (cities.length === 0) {
+        if (stores.length === 0) {
             return res
                 .status(statusCode.NOT_FOUND)
                 .send(
                     util.fail(
                         statusCode.NOT_FOUND,
-                        'no city about the request OR wrong city name'
+                        'no store about the request in the stored list OR wrong store name'
                     )
                 );
         } else {
             return res
                 .status(statusCode.OK)
-                .send(util.success(statusCode.OK, cities));
+                .send(util.success(statusCode.OK, stores));
         }
     } catch (err) {
-        console.log(err);
+        logger.error('GET /store/SpecificStore');
         return res
             .status(statusCode.INTERNAL_SERVER_ERROR)
-            .send(util.fail(statusCode.BAD_REQUEST, err.response));
+            .send(util.fail(statusCode.INTERNAL_SERVER_ERROR, err.response));
     }
 };
 
 const getLatLongFromPostcode = async (req, res) => {
     try {
+        logger.info('GET /store/LatLongFromPostcode');
+
         const postcode = req.params.postcode;
+        // 우선 postcode에 대한 유효성 검사 먼저.
         const validateRes = await postcodes.validate(postcode);
+        // 유효성검사 실패.
         if (validateRes.result === false) {
             return res
                 .status(statusCode.NOT_FOUND)
                 .send(
                     util.fail(
                         statusCode.NOT_FOUND,
-                        'no postcode like the request'
+                        'no postcode like the request OR this postcode was deleted.'
                     )
                 );
         }
         const lookupRes = await postcodes.lookup(postcode);
         const result = {
-            city: lookupRes.result.parliamentary_constituency,
             latitude: lookupRes.result.latitude,
             longitude: lookupRes.result.longitude,
         };
@@ -84,17 +94,20 @@ const getLatLongFromPostcode = async (req, res) => {
             .status(statusCode.OK)
             .send(util.success(statusCode.OK, result));
     } catch (err) {
-        console.log(err);
+        logger.error('GET /store/LatLongFromPostcode');
         return res
             .status(statusCode.INTERNAL_SERVER_ERROR)
-            .send(util.fail(statusCode.BAD_REQUEST, err.response));
+            .send(util.fail(statusCode.INTERNAL_SERVER_ERROR, err.response));
     }
 };
 
-const getAroundCities = async (req, res) => {
+const getAroundStores = async (req, res) => {
     try {
+        logger.info('GET /store/AroundStores');
+
         const radius = req.query.radius;
         const postcode = req.params.postcode;
+        // 우선 postcode에 대한 유효성 검사 먼저.
         const validateRes = await postcodes.validate(postcode);
         if (validateRes.result === false) {
             return res
@@ -110,6 +123,7 @@ const getAroundCities = async (req, res) => {
 
         const latitude = lookupRes.result.latitude;
         const longitude = lookupRes.result.longitude;
+        // lookup 함수를 통해 주어진 postcode로 부터 위도, 경도를 가져옴.
         const geoResult = await postcodes.geo([
             {
                 latitude: latitude,
@@ -117,7 +131,8 @@ const getAroundCities = async (req, res) => {
                 radius: radius,
             },
         ]);
-        // postcode가 정상적이라면, 반드시 중심의 도시 하나는 있어야 한다. 하지만 결과가 나오지 않는다는 것은 radius가 음수라는 의미.
+
+        // postcode가 정상적이라면, 반드시 중심의 도시 하나(요청한 postcode에 대하여)는 있어야 한다. 하지만 결과가 나오지 않는다는 것은 radius가 음수라는 의미.
         if (geoResult.result[0].result === null) {
             return res
                 .status(statusCode.NOT_FOUND)
@@ -128,44 +143,41 @@ const getAroundCities = async (req, res) => {
                     )
                 );
         } else {
-            // 주변에 모든 가능한 도시들을 조회.
-            let aroundCities = geoResult.result[0].result.map((city) => {
+            // 주변에 모든 가능한 상점들을 조회.
+            let aroundStores = geoResult.result[0].result.map((store) => {
                 return {
-                    postcode: city.postcode,
-                    latitude: city.latitude,
-                    longitude: city.longitude,
+                    postcode: store.postcode,
+                    latitude: store.latitude,
+                    longitude: store.longitude,
                 };
             });
-            // 북쪽에서 남쪽으로 정렬 (위도 이용).
-            aroundCities.sort((a, b) => {
+            // 북쪽에서 남쪽으로 정렬. (위도 이용)
+            aroundStores.sort((a, b) => {
                 return a.latitude > b.latitude ? -1 : 1;
             });
 
             // 가능한 도시들 중에 store.json 에 있는 도시들만.
-            let listOfCities = storesJson.filter((item) => {
-                return aroundCities.find((city) => {
-                    return item.postcode === city.postcode;
+            let listOfStores = storesJson.filter((item) => {
+                return aroundStores.find((store) => {
+                    return item.postcode === store.postcode;
                 });
             });
 
-            // let storedCity = listOfCities.map((city) => {
-            //     return city;
-            // });
             return res
                 .status(statusCode.OK)
-                .send(util.success(statusCode.OK, listOfCities));
+                .send(util.success(statusCode.OK, listOfStores));
         }
     } catch (err) {
-        console.log(err);
+        logger.error('GET /store/AroundStores');
         return res
             .status(statusCode.INTERNAL_SERVER_ERROR)
-            .send(util.fail(statusCode.BAD_REQUEST, err.response));
+            .send(util.fail(statusCode.INTERNAL_SERVER_ERROR, err.response));
     }
 };
 
 module.exports = {
-    getAllCities,
-    getSpecificCity,
+    getAllStores,
+    getSpecificStore,
     getLatLongFromPostcode,
-    getAroundCities,
+    getAroundStores,
 };
