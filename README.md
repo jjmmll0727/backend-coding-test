@@ -184,7 +184,6 @@ Let API consumer
 
 2. What part did you find the hardest? What part are you most proud of? In both cases, why?
 - 더미데이터의 영이 적다 보니, 해당 api의 테스트 결과에 대한 신뢰성이 떨어졌다. 마지막 api결과를 가져올 때, store가 한개만 나왔고, 이를 확인하기 위해 직접 구글맵에서 우편번호를 검색해서 확인하는 수 밖에 없었다.
-- forEach 보다 성능이 뛰어난 map 함수를 사용하였다.
 - postcode.io 를 통해 가져온 데이터와 store.json에 있는 데이터를 비교할 때 filter, find를 통해 비교하였다. 
 - logging 라이브러리 winston을 사용하여 로그를 확인할 수 있다. 
 - request 예외처리를 하였다. (잘못된 postcode, 잘못된 상점이름, 음수의 반지름)

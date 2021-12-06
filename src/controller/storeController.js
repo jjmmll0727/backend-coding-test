@@ -7,7 +7,6 @@ const logger = require('../config/winston');
 const getAllStores = (req, res) => {
     try {
         logger.info('GET /store/AllStores');
-        // forEach 보다 map의 성능이 좋기 때문에 map으로 조회.
         // 상점들의 이름만 가져오고 싶다면 11 lines에서 'return item.nane'으로 변경
         let storeData = storesJson.map((item) => {
             return item;
@@ -38,7 +37,7 @@ const getSpecificStore = (req, res) => {
         logger.info('GET /store/SpecificStore');
         const store = req.params.store;
 
-        // 2개 이상의 도시가 있을 수 있으니까 'find'가 아닌 'filter'로 조회.
+        // 비교 조건을 따지기 위해 'filter'로 조회.
         let stores = storesJson.filter((item) => {
             if (item.name === store) {
                 return item;
@@ -85,6 +84,7 @@ const getLatLongFromPostcode = async (req, res) => {
                     )
                 );
         }
+        // 주어진 postcode로 해당 위도, 경도 추출.
         const lookupRes = await postcodes.lookup(postcode);
         const result = {
             latitude: lookupRes.result.latitude,
@@ -124,6 +124,7 @@ const getAroundStores = async (req, res) => {
         const latitude = lookupRes.result.latitude;
         const longitude = lookupRes.result.longitude;
         // lookup 함수를 통해 주어진 postcode로 부터 위도, 경도를 가져옴.
+        // radius는 optional
         const geoResult = await postcodes.geo([
             {
                 latitude: latitude,
