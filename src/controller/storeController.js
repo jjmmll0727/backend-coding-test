@@ -8,8 +8,9 @@ const getAllStores = (req, res) => {
     try {
         logger.info('GET /store/AllStores');
         // 상점들의 이름만 가져오고 싶다면 11 lines에서 'return item.nane'으로 변경
-        let storeData = storesJson.map((item) => {
-            return item;
+        let storeData = [];
+        storesJson.forEach((item) => {
+            storeData.push(item);
         });
 
         // 가져올 수 있는 도시의 정보가 없을 경우.
@@ -145,13 +146,15 @@ const getAroundStores = async (req, res) => {
                 );
         } else {
             // 주변에 모든 가능한 상점들을 조회.
-            let aroundStores = geoResult.result[0].result.map((store) => {
-                return {
+            let aroundStores = [];
+            geoResult.result[0].result.forEach((store) => {
+                aroundStores.push({
                     postcode: store.postcode,
                     latitude: store.latitude,
                     longitude: store.longitude,
-                };
+                });
             });
+
             // 북쪽에서 남쪽으로 정렬. (위도 이용)
             aroundStores.sort((a, b) => {
                 return a.latitude > b.latitude ? -1 : 1;
